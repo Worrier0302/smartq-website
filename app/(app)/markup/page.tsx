@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/topbar";
-import { Btn } from "@/components/ui";
+import { Btn, Modal } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
 import { rm } from "@/lib/format";
@@ -12,6 +12,7 @@ import {
   MarkupMode,
   MarkupSection,
   markupTotals,
+  parseBulkMarkup,
   priceOf,
 } from "@/lib/markup";
 import type { Client, Role, Subcontractor } from "@/lib/types";
@@ -53,10 +54,36 @@ export default function MarkupPage() {
   ]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importSub, setImportSub] = useState("");
   const notify = (m: string) => {
     setToast(m);
     setTimeout(() => setToast(null), 3000);
   };
+
+  function runImport() {
+    const parsed = parseBulkMarkup(importText, globalPct);
+    if (!parsed.length) return notify("没解析到项目，检查一下格式");
+    const withSub = parsed.map((s) => ({
+      ...s,
+      items: s.items.map((it) => ({
+        ...it,
+        subcontractor_id: importSub || null,
+      })),
+    }));
+    setSections((prev) => {
+      // 去掉开头那个还没填的空 section
+      const cleaned = prev.filter((s) =>
+        s.items.some((i) => i.description.trim() || i.cost)
+      );
+      return [...cleaned, ...withSub];
+    });
+    const n = parsed.reduce((a, s) => a + s.items.length, 0);
+    setImportOpen(false);
+    setImportText("");
+    notify(`已导入 ${n} 个项目（${parsed.length} 个工种）`);
+  }
 
   useEffect(() => {
     if (!configured) {
@@ -424,6 +451,7 @@ export default function MarkupPage() {
             </div>
           )}
           <div className="flex-1" />
+          <Btn onClick={() => setImportOpen(true)}>📋 批量导入</Btn>
           <Btn
             variant="amber"
             onClick={toQuotation}
@@ -695,6 +723,76 @@ export default function MarkupPage() {
           )}
         </div>
       </div>
+
+      {importOpen && (
+        <Modal title="📋 批量导入项目" onClose={() => setImportOpen(false)}>
+          <p className="text-[12.5px] text-[#6b7570] mb-3 leading-relaxed">
+            从判包商的 Excel / 报价单直接
+            <b>复制整块粘贴</b>到下面。每行一个项目，系统自动识别
+            <b>描述</b>和<b>成本</b>（取每行最后一个纯数字）。没有数字的行会当成
+            <b>工种标题</b>。
+          </p>
+
+          <label className="font-mono text-[10px] uppercase text-moss mb-1.5 block">
+            这批来自哪个判包商（可选，套用到全部行）
+          </label>
+          <select
+            value={importSub}
+            onChange={(e) => setImportSub(e.target.value)}
+            className="w-full px-2.5 py-2 border border-line rounded-md bg-paper text-[13px] mb-3 focus:outline-none focus:border-moss"
+          >
+            <option value="">— 不指定 —</option>
+            {subs.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.company_name}
+              </option>
+            ))}
+          </select>
+
+          <label className="font-mono text-[10px] uppercase text-moss mb-1.5 block">
+            粘贴内容
+          </label>
+          <textarea
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            placeholder={
+              "干厨房\n鞋柜 2400mm  3360\n中岛 1800mm  2400\n湿厨房\n上下橱柜  9450\n\n（也支持：描述,成本 或从 Excel 直接复制）"
+            }
+            className="w-full min-h-[200px] border border-line rounded-lg px-3 py-2.5 text-[12.5px] font-mono bg-paper resize-y focus:outline-none focus:border-moss focus:bg-white"
+          />
+
+          {importText.trim() && (
+            <div className="mt-2 text-[11.5px] text-moss font-mono">
+              {(() => {
+                const p = parseBulkMarkup(importText, globalPct);
+                const n = p.reduce((a, s) => a + s.items.length, 0);
+                const cost = p.reduce(
+                  (a, s) => a + s.items.reduce((b, i) => b + i.cost, 0),
+                  0
+                );
+                return `预览：${n} 个项目 · ${p.length} 个工种 · 成本合计 ${rm(cost)}`;
+              })()}
+            </div>
+          )}
+
+          <div className="flex gap-2.5 mt-4">
+            <Btn
+              type="button"
+              onClick={() => setImportOpen(false)}
+              className="flex-1 justify-center"
+            >
+              取消
+            </Btn>
+            <Btn
+              variant="primary"
+              onClick={runImport}
+              className="flex-1 justify-center"
+            >
+              导入到表格
+            </Btn>
+          </div>
+        </Modal>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-forest text-white px-5 py-3 rounded-lg text-[13px] font-semibold shadow-doc z-50">
