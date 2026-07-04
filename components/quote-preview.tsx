@@ -1,6 +1,6 @@
 "use client";
 
-import { LogoMark } from "@/components/logo";
+import { Logo } from "@/components/logo";
 import { rm } from "@/lib/format";
 import {
   COMPANY,
@@ -57,7 +57,7 @@ export function QuotePreview({
       <div className="flex justify-between items-start pb-3 border-b-2 border-forest gap-3">
         <div className="flex items-start gap-2 w-[70%]">
           <div className="flex-none">
-            <LogoMark size={30} variant="dark" />
+            <Logo height={34} />
           </div>
           <div className="leading-tight">
             <b className="font-sans font-extrabold text-[10px] block text-ink uppercase">

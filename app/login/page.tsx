@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { LogoMark } from "@/components/logo";
+import { Logo } from "@/components/logo";
 
 const supabaseConfigured = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -43,16 +43,11 @@ export default function LoginPage() {
     <div className="min-h-screen bg-paper flex items-center justify-center p-6">
       <div className="w-full max-w-[380px]">
         {/* 品牌 */}
-        <div className="flex items-center gap-3 mb-8 justify-center">
-          <LogoMark size={44} variant="dark" />
-          <div>
-            <b className="block font-sans font-extrabold text-xl tracking-tight text-ink">
-              Smart&nbsp;Q
-            </b>
-            <span className="font-mono text-[10px] tracking-widest text-moss uppercase">
-              Admin System
-            </span>
-          </div>
+        <div className="flex flex-col items-center gap-2 mb-8">
+          <Logo height={96} />
+          <span className="font-mono text-[10px] tracking-widest text-moss uppercase">
+            Admin System
+          </span>
         </div>
 
         <form

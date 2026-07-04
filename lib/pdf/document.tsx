@@ -1,42 +1,28 @@
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import {
-  Circle,
   Document,
   Font,
+  Image,
   Page,
-  Path,
   StyleSheet,
-  Svg,
   Text,
   View,
 } from "@react-pdf/renderer";
 import { COMPANY } from "@/lib/quote";
 import type { DocType } from "@/lib/docmeta";
 
-// Smart Q 标志（黑圆 + 白房子），用于 PDF 抬头
-function PdfLogo({ size = 30 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill="#111917" />
-      <Path
-        d="M26 80 L26 46 Q26 30 42 30 L58 30 Q74 30 74 46 L74 80"
-        stroke="#fbfaf6"
-        strokeWidth={5}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M36 80 L36 54 Q36 42 50 42 Q64 42 64 54 L64 80"
-        stroke="#fbfaf6"
-        strokeWidth={5}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M45 80 L45 61 Q45 53 50 53 Q55 53 55 61 L55 80 Z" fill="#fbfaf6" />
-    </Svg>
-  );
+// logo 以 Buffer 读入（react-pdf 本地图片需要 Buffer，不能用文件路径当 URL）
+let LOGO_DATA: Buffer | null = null;
+function logoSrc() {
+  if (!LOGO_DATA) {
+    try {
+      LOGO_DATA = readFileSync(path.join(process.cwd(), "public", "logo.png"));
+    } catch {
+      return null;
+    }
+  }
+  return { data: LOGO_DATA, format: "png" as const };
 }
 
 const FONT_DIR = path.join(process.cwd(), "public", "fonts");
@@ -262,9 +248,12 @@ export function DocumentPDF({ d }: { d: DocPDFData }) {
         {/* head — 公司抬头 */}
         <View style={s.head}>
           <View style={s.brandRow}>
-            <View style={{ flexShrink: 0 }}>
-              <PdfLogo size={30} />
-            </View>
+            {logoSrc() ? (
+              <Image
+                src={logoSrc()!}
+                style={{ width: 34, height: 34, flexShrink: 0 }}
+              />
+            ) : null}
             <View style={{ flex: 1 }}>
               <Text style={s.coName}>{COMPANY.name.toUpperCase()}</Text>
               <Text style={s.coReg}>{COMPANY.reg}</Text>
