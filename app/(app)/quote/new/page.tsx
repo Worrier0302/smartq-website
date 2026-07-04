@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/topbar";
-import { Btn } from "@/components/ui";
+import { Btn, Modal } from "@/components/ui";
 import { QuotePreview } from "@/components/quote-preview";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
 import { rm } from "@/lib/format";
 import {
+  parseBulkQuote,
   PayStage,
   QuoteSection,
   quoteTotals,
@@ -68,11 +69,28 @@ export default function QuoteBuilderPage() {
 
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
 
   const notify = (m: string) => {
     setToast(m);
     setTimeout(() => setToast(null), 2800);
   };
+
+  function runImport() {
+    const parsed = parseBulkQuote(importText);
+    if (!parsed.length) return notify("没解析到项目，检查一下格式");
+    setSections((prev) => {
+      const cleaned = prev.filter((s) =>
+        s.items.some((i) => i.description.trim() || i.price)
+      );
+      return [...cleaned, ...parsed];
+    });
+    const n = parsed.reduce((a, s) => a + s.items.length, 0);
+    setImportOpen(false);
+    setImportText("");
+    notify(`已导入 ${n} 个项目（${parsed.length} 个工种）`);
+  }
 
   // ---- initial load: role, clients, subs, default template ----
   useEffect(() => {
@@ -544,12 +562,20 @@ export default function QuoteBuilderPage() {
                 </div>
               ))}
 
-              <button
-                onClick={addSection}
-                className="font-sans text-[12.5px] font-semibold text-forest bg-paper-2 border border-dashed border-moss rounded-lg p-[11px] w-full mt-4 hover:bg-paper transition flex items-center justify-center gap-2"
-              >
-                + 添加新 Section（工种）
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={addSection}
+                  className="flex-1 font-sans text-[12.5px] font-semibold text-forest bg-paper-2 border border-dashed border-moss rounded-lg p-[11px] hover:bg-paper transition flex items-center justify-center gap-2"
+                >
+                  + 添加新 Section（工种）
+                </button>
+                <button
+                  onClick={() => setImportOpen(true)}
+                  className="font-sans text-[12.5px] font-semibold text-moss bg-white border border-line rounded-lg px-4 hover:border-moss transition"
+                >
+                  📋 批量导入
+                </button>
+              </div>
 
               <div className="mt-4.5 mt-[18px]">
                 <label className={mini + " !mt-0"}>折扣 Discount (RM)</label>
@@ -743,6 +769,53 @@ export default function QuoteBuilderPage() {
           </div>
         </div>
       </div>
+
+      {importOpen && (
+        <Modal title="📋 批量导入项目" onClose={() => setImportOpen(false)}>
+          <p className="text-[12.5px] text-[#6b7570] mb-3 leading-relaxed">
+            从 Excel / 报价单<b>复制整块粘贴</b>。每行一个项目，自动识别
+            <b>描述</b>和<b>客户价</b>（每行最后一个纯数字）。没有数字的行会当成
+            <b>工种标题</b>，SUBTOTAL / 折扣 / 运费等汇总行自动跳过。
+          </p>
+          <textarea
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            placeholder={
+              "木工 Carpentry\nL型上下橱柜 4200mm  6800\n吊柜玻璃门 x4  1900\n石材 Stone\n石英石台面  3200\n\n（也支持：描述,售价 或从 Excel 直接复制）"
+            }
+            className="w-full min-h-[200px] border border-line rounded-lg px-3 py-2.5 text-[12.5px] font-mono bg-paper resize-y focus:outline-none focus:border-moss focus:bg-white"
+          />
+          {importText.trim() && (
+            <div className="mt-2 text-[11.5px] text-moss font-mono">
+              {(() => {
+                const p = parseBulkQuote(importText);
+                const n = p.reduce((a, s) => a + s.items.length, 0);
+                const sum = p.reduce(
+                  (a, s) => a + s.items.reduce((b, i) => b + i.price, 0),
+                  0
+                );
+                return `预览：${n} 个项目 · ${p.length} 个工种 · 售价合计 ${rm(sum)}`;
+              })()}
+            </div>
+          )}
+          <div className="flex gap-2.5 mt-4">
+            <Btn
+              type="button"
+              onClick={() => setImportOpen(false)}
+              className="flex-1 justify-center"
+            >
+              取消
+            </Btn>
+            <Btn
+              variant="primary"
+              onClick={runImport}
+              className="flex-1 justify-center"
+            >
+              导入到表格
+            </Btn>
+          </div>
+        </Modal>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-forest text-white px-5 py-3 rounded-lg text-[13px] font-semibold shadow-doc z-50">
