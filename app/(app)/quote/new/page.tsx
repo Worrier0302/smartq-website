@@ -71,6 +71,8 @@ export default function QuoteBuilderPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editDocNo, setEditDocNo] = useState<string>("");
 
   const notify = (m: string) => {
     setToast(m);
@@ -151,6 +153,107 @@ export default function QuoteBuilderPage() {
             };
           })
         );
+      }
+
+      // ---- edit mode: 载入已有报价 ?edit=<id> ----
+      const eid =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("edit")
+          : null;
+      if (eid) {
+        const { data: doc } = await supabase
+          .from("documents")
+          .select(
+            "id, doc_no, discount, global_markup_pct, terms_included, terms_excluded, terms_dlp, terms_conditions, project:projects(id, name, site_address, client_id)"
+          )
+          .eq("id", eid)
+          .single();
+        if (doc) {
+          const proj = doc.project as unknown as {
+            id: string;
+            name: string;
+            site_address: string | null;
+            client_id: string;
+          } | null;
+          setEditId(doc.id);
+          setEditDocNo(doc.doc_no ?? "");
+          setDiscount(Number(doc.discount) || 0);
+          if (doc.terms_included != null) setIncluded(doc.terms_included);
+          if (doc.terms_excluded != null) setExcluded(doc.terms_excluded);
+          if (doc.terms_dlp != null) setDlp(doc.terms_dlp);
+          if (doc.terms_conditions != null) setTerms(doc.terms_conditions);
+          if (proj) {
+            setClientId(proj.client_id);
+            setProjectMode("existing");
+            setProjectId(proj.id);
+          }
+
+          // 明细行 -> sections
+          const { data: li } =
+            r === "owner"
+              ? await supabase
+                  .from("line_items")
+                  .select(
+                    "section_name, section_order, line_order, description, qty, cost, markup_pct, manual_price, subcontractor_id"
+                  )
+                  .eq("document_id", eid)
+                  .order("section_order")
+                  .order("line_order")
+              : await supabase
+                  .from("line_items_staff")
+                  .select("section_name, section_order, line_order, description, client_price")
+                  .eq("document_id", eid)
+                  .order("section_order")
+                  .order("line_order");
+          const secMap = new Map<number, QuoteSection>();
+          (li ?? []).forEach((l: Record<string, unknown>) => {
+            const so = Number(l.section_order) || 0;
+            let sec = secMap.get(so);
+            if (!sec) {
+              sec = { key: uid(), name: String(l.section_name ?? "工程明细"), items: [] };
+              secMap.set(so, sec);
+            }
+            // markup 工作台生成的报价：客户价是 cost×加成算出来的（manual_price 为空），
+            // 编辑时把算好的客户价填进去（保存后会冻结成 manual_price）
+            const gp = Number(doc.global_markup_pct) || 35;
+            const price =
+              l.manual_price != null
+                ? Number(l.manual_price)
+                : l.client_price != null
+                  ? Number(l.client_price)
+                  : Math.round(
+                      (Number(l.cost) || 0) *
+                        (1 +
+                          (l.markup_pct != null ? Number(l.markup_pct) : gp) /
+                            100)
+                    );
+            sec.items.push({
+              key: uid(),
+              description: String(l.description ?? ""),
+              price,
+              cost: Number(l.cost) || 0,
+              subcontractor_id: (l.subcontractor_id as string) ?? null,
+            });
+          });
+          const secs = [...secMap.entries()].sort((a, b) => a[0] - b[0]).map(([, s]) => s);
+          if (secs.length) setSections(secs);
+
+          // 付款时程
+          const { data: ps } = await supabase
+            .from("payment_schedules")
+            .select("stage_name, pct, condition_text, stage_order")
+            .eq("document_id", eid)
+            .order("stage_order");
+          if (ps && ps.length)
+            setPay(
+              ps.map((p) => ({
+                key: uid(),
+                stage_name: p.stage_name,
+                pct: Number(p.pct) || 0,
+                condition_text: p.condition_text ?? "",
+              }))
+            );
+        }
       }
     })();
   }, [configured]);
@@ -262,29 +365,55 @@ export default function QuoteBuilderPage() {
         pid = proj.id;
       }
 
-      // 2. document
-      const { data: docNo } = await supabase.rpc("next_doc_no", {
-        p_prefix: "Q",
-      });
-      const { data: doc, error: de } = await supabase
-        .from("documents")
-        .insert({
-          doc_no: docNo,
-          type: "quotation",
-          project_id: pid,
-          status: "draft",
-          issue_date: iso(today),
-          valid_until: iso(addDays(today, 14)),
-          discount: discount || 0,
-          markup_mode: "manual",
-          terms_included: included,
-          terms_excluded: excluded,
-          terms_dlp: dlp,
-          terms_conditions: terms,
-        })
-        .select("id, doc_no")
-        .single();
-      if (de) throw de;
+      // 2. document —— 编辑模式更新，否则新建
+      let docId: string;
+      let savedNo: string;
+      if (editId) {
+        const { error: ue } = await supabase
+          .from("documents")
+          .update({
+            discount: discount || 0,
+            terms_included: included,
+            terms_excluded: excluded,
+            terms_dlp: dlp,
+            terms_conditions: terms,
+          })
+          .eq("id", editId);
+        if (ue) throw ue;
+        docId = editId;
+        savedNo = editDocNo;
+        // 替换旧的明细行 + 付款时程
+        await supabase.from("line_items").delete().eq("document_id", editId);
+        await supabase
+          .from("payment_schedules")
+          .delete()
+          .eq("document_id", editId);
+      } else {
+        const { data: docNo } = await supabase.rpc("next_doc_no", {
+          p_prefix: "Q",
+        });
+        const { data: doc, error: de } = await supabase
+          .from("documents")
+          .insert({
+            doc_no: docNo,
+            type: "quotation",
+            project_id: pid,
+            status: "draft",
+            issue_date: iso(today),
+            valid_until: iso(addDays(today, 14)),
+            discount: discount || 0,
+            markup_mode: "manual",
+            terms_included: included,
+            terms_excluded: excluded,
+            terms_dlp: dlp,
+            terms_conditions: terms,
+          })
+          .select("id, doc_no")
+          .single();
+        if (de) throw de;
+        docId = doc.id;
+        savedNo = doc.doc_no;
+      }
 
       // 3. line_items（不 .select()，避免 staff 被 SELECT policy 挡；成本列由 trigger 处理）
       const rows: Record<string, unknown>[] = [];
@@ -292,7 +421,7 @@ export default function QuoteBuilderPage() {
         sec.items.forEach((it, li) => {
           if (!it.description.trim() && !it.price) return;
           rows.push({
-            document_id: doc.id,
+            document_id: docId,
             section_name: sec.name,
             section_order: si,
             line_order: li,
@@ -311,7 +440,7 @@ export default function QuoteBuilderPage() {
 
       // 4. payment_schedules
       const payRows = pay.map((p, i) => ({
-        document_id: doc.id,
+        document_id: docId,
         stage_name: p.stage_name,
         pct: p.pct || 0,
         condition_text: p.condition_text || null,
@@ -325,11 +454,11 @@ export default function QuoteBuilderPage() {
       }
 
       if (openPdf) {
-        notify(`已保存 ${doc.doc_no}，正在生成 PDF 📄`);
-        window.open(`/api/pdf/${doc.id}`, "_blank");
+        notify(`已保存 ${savedNo}，正在生成 PDF 📄`);
+        window.open(`/api/pdf/${docId}`, "_blank");
       } else {
-        notify(`已保存草稿 ✓ ${doc.doc_no}`);
-        setTimeout(() => router.push("/documents"), 900);
+        notify(`已${editId ? "更新" : "保存草稿"} ✓ ${savedNo}`);
+        setTimeout(() => router.push(`/documents/${docId}`), 900);
       }
     } catch (e) {
       notify("保存失败：" + (e as Error).message);
@@ -345,7 +474,10 @@ export default function QuoteBuilderPage() {
 
   return (
     <>
-      <Topbar crumb="NEW QUOTATION" title="开新报价 Quotation" />
+      <Topbar
+        crumb={editId ? "EDIT QUOTATION" : "NEW QUOTATION"}
+        title={editId ? `编辑报价 ${editDocNo}` : "开新报价 Quotation"}
+      />
 
       <div className="px-[30px] pt-[26px] pb-[60px]">
         {!configured && (
@@ -755,7 +887,7 @@ export default function QuoteBuilderPage() {
                 disabled={saving || !configured}
                 className="flex-1 justify-center"
               >
-                {saving ? "保存中…" : "保存草稿"}
+                {saving ? "保存中…" : editId ? "保存修改" : "保存草稿"}
               </Btn>
               <Btn
                 variant="primary"

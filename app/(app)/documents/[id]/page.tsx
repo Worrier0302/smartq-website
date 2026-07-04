@@ -282,6 +282,80 @@ export default function DocDetailPage({ params }: { params: { id: string } }) {
     }
   }
 
+  // 创建新版本 v2/v3…（复制当前报价，旧版本保留）
+  async function createRevision() {
+    if (!doc) return;
+    setBusy(true);
+    const supabase = createClient();
+    try {
+      const base = doc.doc_no.replace(/-v\d+$/, "");
+      const m = doc.doc_no.match(/-v(\d+)$/);
+      const nextV = m ? Number(m[1]) + 1 : 2;
+      const newNo = `${base}-v${nextV}`;
+
+      const { data: nd, error } = await supabase
+        .from("documents")
+        .insert({
+          doc_no: newNo,
+          type: "quotation",
+          project_id: doc.project_id,
+          status: "draft",
+          issue_date: new Date().toISOString().slice(0, 10),
+          valid_until: new Date(Date.now() + 14 * 864e5)
+            .toISOString()
+            .slice(0, 10),
+          discount: doc.discount,
+          markup_mode: "manual",
+        })
+        .select("id, doc_no")
+        .single();
+      if (error) throw error;
+
+      // 复制明细 + 条款 + 付款时程
+      if (role === "owner") {
+        const { data: src } = await supabase
+          .from("line_items")
+          .select(
+            "section_name, section_order, line_order, description, dimension, qty, cost, markup_pct, manual_price, subcontractor_id"
+          )
+          .eq("document_id", doc.id);
+        const rows = (src ?? []).map((l) => ({ ...l, document_id: nd.id }));
+        if (rows.length) await supabase.from("line_items").insert(rows);
+      } else {
+        const rows = lines.map((l) => ({
+          document_id: nd.id,
+          section_name: l.section_name,
+          section_order: l.section_order,
+          line_order: l.line_order,
+          description: l.description,
+          qty: l.qty,
+          manual_price: l.amount,
+        }));
+        if (rows.length) await supabase.from("line_items").insert(rows);
+      }
+      const { data: srcDoc } = await supabase
+        .from("documents")
+        .select("terms_included, terms_excluded, terms_dlp, terms_conditions")
+        .eq("id", doc.id)
+        .single();
+      if (srcDoc) await supabase.from("documents").update(srcDoc).eq("id", nd.id);
+      const { data: ps } = await supabase
+        .from("payment_schedules")
+        .select("stage_name, pct, condition_text, stage_order")
+        .eq("document_id", doc.id);
+      const psRows = (ps ?? []).map((p) => ({ ...p, document_id: nd.id }));
+      if (psRows.length)
+        await supabase.from("payment_schedules").insert(psRows);
+
+      notify(`已创建新版本 ${newNo}，正在打开编辑…`);
+      setTimeout(() => router.push(`/quote/new?edit=${nd.id}`), 600);
+    } catch (e) {
+      notify("创建新版本失败：" + (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function recordPayment(e: React.FormEvent) {
     e.preventDefault();
     if (!doc) return;
@@ -326,6 +400,17 @@ export default function DocDetailPage({ params }: { params: { id: string } }) {
         <Btn onClick={() => window.open(`/api/pdf/${doc.id}`, "_blank")}>
           生成 PDF
         </Btn>
+        {doc.type === "quotation" &&
+          (doc.status === "draft" || doc.status === "sent") && (
+            <Btn onClick={() => router.push(`/quote/new?edit=${doc.id}`)}>
+              ✏️ 编辑
+            </Btn>
+          )}
+        {doc.type === "quotation" && (
+          <Btn onClick={createRevision} disabled={busy}>
+            + 新版本
+          </Btn>
+        )}
         {isPO && (
           <Btn onClick={() => setWaOpen(true)}>WhatsApp 文字</Btn>
         )}
