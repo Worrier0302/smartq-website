@@ -76,7 +76,7 @@ export default function DashboardPage() {
       .select(
         "id, doc_no, type, status, issue_date, created_at, discount, project:projects(name, client:clients(name))"
       )
-      .order("created_at", { ascending: false });
+      .order("issue_date", { ascending: false, nullsFirst: false });
     const docs = (docsRaw ?? []) as unknown as {
       id: string;
       doc_no: string;
@@ -152,7 +152,8 @@ export default function DashboardPage() {
         const paid = paidByDoc.get(d.id) ?? 0;
         const bal = grand - paid;
         if (bal > 0) outstanding += bal;
-        if (inThisMonth(d.created_at)) {
+        // 按发票实际日期(issue_date)判断本月,而非导入时间(created_at)
+        if (inThisMonth(d.issue_date ?? d.created_at)) {
           monthClosed += grand;
           monthMargin += grand - (costTotals.get(d.id) ?? 0);
         }

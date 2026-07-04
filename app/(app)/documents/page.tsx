@@ -60,7 +60,7 @@ export default function DocumentsPage() {
       .select(
         "id, doc_no, type, status, issue_date, project:projects(name, client:clients(name))"
       )
-      .order("created_at", { ascending: false });
+      .order("issue_date", { ascending: false, nullsFirst: false });
 
     const list = (docs ?? []) as unknown as Omit<DocRow, "amount" | "cost">[];
     const ids = list.map((d) => d.id);
