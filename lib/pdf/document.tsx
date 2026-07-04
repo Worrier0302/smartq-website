@@ -264,7 +264,6 @@ export function DocumentPDF({ d }: { d: DocPDFData }) {
           <View style={s.docBox}>
             <Text style={s.docType}>{d.titleEn}</Text>
             <Text style={s.docNo}>{d.docNo}</Text>
-            {d.statusLabel ? <Text style={s.status}>{d.statusLabel}</Text> : null}
           </View>
         </View>
 
