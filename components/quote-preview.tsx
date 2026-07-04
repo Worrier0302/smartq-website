@@ -179,24 +179,32 @@ export function QuotePreview({
         </table>
       </Block>
 
-      <Block title="What's Included · 包含">
-        <List items={toLines(included)} />
-      </Block>
-      <Block title="Not Included · 不包含">
-        <List items={toLines(excluded)} two />
-      </Block>
-      <Block title="Defect Liability Period (DLP) · 保固">
-        <List items={toLines(dlp)} />
-      </Block>
-      <Block title="Terms & Conditions">
-        <ol className="text-[6.5px] text-[#6b7570] leading-[1.6] pl-3 m-0 list-decimal">
-          {toLines(terms).map((t, i) => (
-            <li key={i} className="mb-px">
-              {t.replace(/^\d+\.\s*/, "")}
-            </li>
-          ))}
-        </ol>
-      </Block>
+      {toLines(included).length > 0 && (
+        <Block title="What's Included · 包含">
+          <List items={toLines(included)} />
+        </Block>
+      )}
+      {toLines(excluded).length > 0 && (
+        <Block title="Not Included · 不包含">
+          <List items={toLines(excluded)} two />
+        </Block>
+      )}
+      {toLines(dlp).length > 0 && (
+        <Block title="Defect Liability Period (DLP) · 保固">
+          <List items={toLines(dlp)} />
+        </Block>
+      )}
+      {toLines(terms).length > 0 && (
+        <Block title="Terms & Conditions">
+          <ol className="text-[6.5px] text-[#6b7570] leading-[1.6] pl-3 m-0 list-decimal">
+            {toLines(terms).map((t, i) => (
+              <li key={i} className="mb-px">
+                {t.replace(/^\d+\.\s*/, "")}
+              </li>
+            ))}
+          </ol>
+        </Block>
+      )}
 
       {/* signatures */}
       <div className="flex justify-between mt-3 gap-5">

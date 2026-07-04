@@ -22,6 +22,15 @@ const uid = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
 
+type TermItem = { key: string; text: string; on: boolean };
+// 把模板文本按行拆成可勾选项
+const toItems = (text: string | null | undefined, on: boolean): TermItem[] =>
+  (text ?? "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => ({ key: uid(), text: l, on }));
+
 function addDays(d: Date, days: number) {
   const r = new Date(d);
   r.setDate(r.getDate() + days);
@@ -62,10 +71,20 @@ export default function QuoteBuilderPage() {
   ]);
   const [discount, setDiscount] = useState(0);
   const [pay, setPay] = useState<PayStage[]>([]);
-  const [included, setIncluded] = useState("");
-  const [excluded, setExcluded] = useState("");
-  const [dlp, setDlp] = useState("");
-  const [terms, setTerms] = useState("");
+  // 条款改成「勾选式」：每条一项，勾了才进报价
+  const [incItems, setIncItems] = useState<TermItem[]>([]);
+  const [excItems, setExcItems] = useState<TermItem[]>([]);
+  const [dlpItems, setDlpItems] = useState<TermItem[]>([]);
+  const [termItems, setTermItems] = useState<TermItem[]>([]);
+  const joinOn = (items: TermItem[]) =>
+    items
+      .filter((i) => i.on && i.text.trim())
+      .map((i) => i.text)
+      .join("\n");
+  const included = joinOn(incItems);
+  const excluded = joinOn(excItems);
+  const dlp = joinOn(dlpItems);
+  const terms = joinOn(termItems);
 
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -133,10 +152,11 @@ export default function QuoteBuilderPage() {
         .limit(1)
         .maybeSingle();
       if (tpl) {
-        setIncluded(tpl.included ?? "");
-        setExcluded(tpl.excluded ?? "");
-        setDlp(tpl.dlp ?? "");
-        setTerms(tpl.conditions ?? "");
+        // 从模板带出，默认「不勾」——勾了才进报价
+        setIncItems(toItems(tpl.included, false));
+        setExcItems(toItems(tpl.excluded, false));
+        setDlpItems(toItems(tpl.dlp, false));
+        setTermItems(toItems(tpl.conditions, false));
         const stages = (tpl.payment_stages as unknown[]) ?? [];
         setPay(
           stages.map((s) => {
@@ -178,10 +198,30 @@ export default function QuoteBuilderPage() {
           setEditId(doc.id);
           setEditDocNo(doc.doc_no ?? "");
           setDiscount(Number(doc.discount) || 0);
-          if (doc.terms_included != null) setIncluded(doc.terms_included);
-          if (doc.terms_excluded != null) setExcluded(doc.terms_excluded);
-          if (doc.terms_dlp != null) setDlp(doc.terms_dlp);
-          if (doc.terms_conditions != null) setTerms(doc.terms_conditions);
+          // 已存的条款 = 之前勾选过的 -> 载入为「已勾」；再合并模板里其余未勾项供补选
+          const mergeItems = (
+            saved: string | null,
+            tplText: string | null | undefined
+          ) => {
+            const on = toItems(saved, true);
+            const savedSet = new Set(on.map((i) => i.text));
+            const rest = toItems(tplText, false).filter(
+              (i) => !savedSet.has(i.text)
+            );
+            return [...on, ...rest];
+          };
+          setIncItems((prev) =>
+            mergeItems(doc.terms_included, prev.map((i) => i.text).join("\n"))
+          );
+          setExcItems((prev) =>
+            mergeItems(doc.terms_excluded, prev.map((i) => i.text).join("\n"))
+          );
+          setDlpItems((prev) =>
+            mergeItems(doc.terms_dlp, prev.map((i) => i.text).join("\n"))
+          );
+          setTermItems((prev) =>
+            mergeItems(doc.terms_conditions, prev.map((i) => i.text).join("\n"))
+          );
           if (proj) {
             setClientId(proj.client_id);
             setProjectMode("existing");
@@ -798,31 +838,29 @@ export default function QuoteBuilderPage() {
                 </span>
               </div>
 
-              <TermArea
+              <TermChecklist
                 label="✓ 包含 What's Included"
-                value={included}
-                onChange={setIncluded}
+                items={incItems}
+                setItems={setIncItems}
               />
-              <TermArea
+              <TermChecklist
                 label="✗ 不包含 Not Included"
-                value={excluded}
-                onChange={setExcluded}
+                items={excItems}
+                setItems={setExcItems}
               />
-              <TermArea
+              <TermChecklist
                 label="🛡 DLP 保固期"
-                value={dlp}
-                onChange={setDlp}
-                min={60}
+                items={dlpItems}
+                setItems={setDlpItems}
               />
-              <TermArea
+              <TermChecklist
                 label="§ 条款 Terms & Conditions"
-                value={terms}
-                onChange={setTerms}
-                min={120}
+                items={termItems}
+                setItems={setTermItems}
               />
               <p className="text-[11px] text-[#8a938e] mt-2.5 font-mono">
-                💡 这些内容从「默认模板」带出，可只改需要的部分（模板在 PHASE 5
-                的设置页维护）。
+                💡 勾选需要的条款才会进报价（右侧预览 / PDF 只显示勾选项）。默认内容在
+                设置 → 条款模板 维护。
               </p>
             </FormCard>
           </div>
@@ -980,29 +1018,95 @@ function FormCard({
   );
 }
 
-function TermArea({
+function TermChecklist({
   label,
-  value,
-  onChange,
-  min = 80,
+  items,
+  setItems,
 }: {
   label: string;
-  value: string;
-  onChange: (v: string) => void;
-  min?: number;
+  items: TermItem[];
+  setItems: React.Dispatch<React.SetStateAction<TermItem[]>>;
 }) {
+  const uidLocal = () =>
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+  const onCount = items.filter((i) => i.on).length;
+  const allOn = items.length > 0 && onCount === items.length;
+
+  const toggle = (key: string) =>
+    setItems((p) => p.map((i) => (i.key === key ? { ...i, on: !i.on } : i)));
+  const edit = (key: string, text: string) =>
+    setItems((p) => p.map((i) => (i.key === key ? { ...i, text } : i)));
+  const remove = (key: string) =>
+    setItems((p) => p.filter((i) => i.key !== key));
+  const add = () =>
+    setItems((p) => [...p, { key: uidLocal(), text: "", on: true }]);
+  const toggleAll = () =>
+    setItems((p) => p.map((i) => ({ ...i, on: !allOn })));
+
   return (
-    <>
-      <span className="font-mono text-[9.5px] tracking-tight uppercase text-moss mb-1.5 block mt-3.5">
-        {label}
-      </span>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ minHeight: min }}
-        className="w-full border border-line rounded-lg px-3 py-2.5 text-[12.5px] leading-[1.7] bg-paper resize-y text-ink focus:outline-none focus:border-moss focus:bg-white"
-      />
-    </>
+    <div className="mt-4">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-mono text-[9.5px] tracking-tight uppercase text-moss">
+          {label}
+          {onCount > 0 && (
+            <span className="ml-1.5 text-forest">已选 {onCount}</span>
+          )}
+        </span>
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="font-mono text-[9.5px] text-moss hover:text-forest"
+        >
+          {allOn ? "全不选" : "全选"}
+        </button>
+      </div>
+      <div className="space-y-1">
+        {items.map((it) => (
+          <div
+            key={it.key}
+            className={`flex items-start gap-2 rounded-md border px-2 py-1.5 transition ${
+              it.on ? "border-moss bg-white" : "border-line bg-paper"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={it.on}
+              onChange={() => toggle(it.key)}
+              className="mt-1 accent-[var(--forest)] w-3.5 h-3.5 flex-none"
+            />
+            <textarea
+              value={it.text}
+              onChange={(e) => edit(it.key, e.target.value)}
+              rows={1}
+              className={`flex-1 bg-transparent text-[12px] leading-[1.6] resize-none focus:outline-none ${
+                it.on ? "text-ink" : "text-[#8a938e]"
+              }`}
+              onInput={(e) => {
+                const t = e.currentTarget;
+                t.style.height = "auto";
+                t.style.height = t.scrollHeight + "px";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => remove(it.key)}
+              className="text-brick/40 hover:text-brick text-[13px] flex-none"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={add}
+        className="mt-1.5 text-[11px] text-moss font-semibold hover:text-forest"
+      >
+        + 自定义一条
+      </button>
+    </div>
   );
 }
 
