@@ -6,6 +6,7 @@ import {
   Noto_Sans_SC,
 } from "next/font/google";
 import "./globals.css";
+import { LangProvider } from "@/lib/i18n";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -44,7 +45,7 @@ export default function RootLayout({
       <body
         className={`${archivo.variable} ${archivoNarrow.variable} ${plexMono.variable} ${notoSansSC.variable} antialiased`}
       >
-        {children}
+        <LangProvider>{children}</LangProvider>
       </body>
     </html>
   );

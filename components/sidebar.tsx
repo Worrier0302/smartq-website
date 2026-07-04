@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/logo";
+import { useLang } from "@/lib/i18n";
 
 type NavItem = {
   href: string;
-  label: string;
+  label: [string, string]; // [中文, English]
   icon: React.ReactNode;
   ownerOnly?: boolean;
 };
@@ -15,7 +16,7 @@ type NavItem = {
 const mainNav: NavItem[] = [
   {
     href: "/",
-    label: "仪表板",
+    label: ["仪表板", "Dashboard"],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -27,7 +28,7 @@ const mainNav: NavItem[] = [
   },
   {
     href: "/documents",
-    label: "所有单据",
+    label: ["所有单据", "Documents"],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -38,7 +39,7 @@ const mainNav: NavItem[] = [
   },
   {
     href: "/projects",
-    label: "工程 Projects",
+    label: ["工程", "Projects"],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M2 20h20M4 20V8l8-5 8 5v12M9 20v-6h6v6" />
@@ -47,7 +48,7 @@ const mainNav: NavItem[] = [
   },
   {
     href: "/markup",
-    label: "判包报价 → 加成",
+    label: ["判包报价 → 加成", "Markup"],
     ownerOnly: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -57,7 +58,7 @@ const mainNav: NavItem[] = [
   },
   {
     href: "/quote/new",
-    label: "开新报价",
+    label: ["开新报价", "New Quote"],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M12 5v14M5 12h14" />
@@ -69,7 +70,7 @@ const mainNav: NavItem[] = [
 const dataNav: NavItem[] = [
   {
     href: "/clients",
-    label: "客户",
+    label: ["客户", "Clients"],
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -80,7 +81,7 @@ const dataNav: NavItem[] = [
   },
   {
     href: "/subcontractors",
-    label: "判包商",
+    label: ["判包商", "Subcontractors"],
     ownerOnly: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -99,6 +100,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useLang();
 
   const initials =
     fullName
@@ -134,7 +136,7 @@ export function Sidebar({
         <span className="w-[17px] h-[17px] flex-none [&_svg]:w-full [&_svg]:h-full [&_svg]:[stroke-width:1.8]">
           {item.icon}
         </span>
-        {item.label}
+        {t(item.label[0], item.label[1])}
       </Link>
     );
   }
@@ -152,23 +154,23 @@ export function Sidebar({
       </div>
 
       <div className="font-mono text-[9.5px] tracking-[1.5px] text-sage uppercase pt-3.5 pb-1.5 px-2.5">
-        主菜单
+        {t("主菜单", "Main")}
       </div>
       {mainNav.map(renderItem)}
 
       <div className="font-mono text-[9.5px] tracking-[1.5px] text-sage uppercase pt-3.5 pb-1.5 px-2.5">
-        资料库
+        {t("资料库", "Library")}
       </div>
       {dataNav.map(renderItem)}
 
       {role === "owner" && (
         <>
           <div className="font-mono text-[9.5px] tracking-[1.5px] text-sage uppercase pt-3.5 pb-1.5 px-2.5">
-            设置
+            {t("设置", "Settings")}
           </div>
           {renderItem({
             href: "/settings/terms",
-            label: "条款模板",
+            label: ["条款模板", "Terms Templates"],
             ownerOnly: true,
             icon: (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -200,7 +202,7 @@ export function Sidebar({
         onClick={signOut}
         className="mt-2 font-mono text-[10px] tracking-wide text-sage border border-sage/30 rounded-[5px] px-2 py-1 hover:border-amber hover:text-amber transition self-start"
       >
-        登出 SIGN OUT ↩
+        {t("登出", "Sign Out")} ↩
       </button>
     </aside>
   );

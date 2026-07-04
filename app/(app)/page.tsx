@@ -7,6 +7,7 @@ import { Btn } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
 import { rm } from "@/lib/format";
+import { useLang } from "@/lib/i18n";
 import { DOC_META, DocType, STATUS_LABEL } from "@/lib/docmeta";
 import type { Role } from "@/lib/types";
 
@@ -42,6 +43,7 @@ type DlpRow = {
 
 export default function DashboardPage() {
   const configured = isSupabaseConfigured();
+  const { t } = useLang();
   const [role, setRole] = useState<Role>("owner");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stats>({
@@ -213,15 +215,15 @@ export default function DashboardPage() {
   }, [load]);
 
   const cards = [
-    { lbl: "本月已成交", val: rm(stats.monthClosed), accent: "bg-forest" },
-    { lbl: "待收款 Outstanding", val: rm(stats.outstanding), accent: "bg-amber" },
+    { lbl: t("本月已成交", "Closed this month"), val: rm(stats.monthClosed), accent: "bg-forest" },
+    { lbl: t("待收款", "Outstanding"), val: rm(stats.outstanding), accent: "bg-amber" },
     {
-      lbl: "进行中项目",
-      val: `${stats.activeProjects} 个`,
+      lbl: t("进行中项目", "Active projects"),
+      val: t(`${stats.activeProjects} 个`, `${stats.activeProjects}`),
       accent: "bg-moss",
     },
     {
-      lbl: "本月毛利 Margin",
+      lbl: t("本月毛利", "Margin this month"),
       val: rm(stats.monthMargin),
       accent: "bg-forest",
       ownerOnly: true,
@@ -230,9 +232,9 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Topbar crumb="DASHBOARD" title="仪表板">
+      <Topbar crumb="DASHBOARD" title={t("仪表板", "Dashboard")}>
         <Link href="/quote/new">
-          <Btn variant="amber">+ 开新报价</Btn>
+          <Btn variant="amber">+ {t("开新报价", "New Quote")}</Btn>
         </Link>
       </Topbar>
 
@@ -272,20 +274,20 @@ export default function DashboardPage() {
         {/* recent docs */}
         <div className="flex items-center justify-between mt-[30px] mb-3.5">
           <h2 className="font-sans font-bold text-base flex items-center gap-2">
-            最近单据
+            {t("最近单据", "Recent documents")}
             <span className="font-mono text-[11px] text-amber border border-line px-1.5 py-0.5 rounded">
-              近期
+              {t("近期", "Recent")}
             </span>
           </h2>
           <Link href="/documents">
-            <Btn>查看全部 →</Btn>
+            <Btn>{t("查看全部", "View all")} →</Btn>
           </Link>
         </div>
         <div className="bg-card border border-line rounded-xl overflow-hidden shadow-card">
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr>
-                {["单号", "类型", "客户 / 项目", "金额", "状态"].map((h) => (
+                {[t("单号", "No."), t("类型", "Type"), t("客户 / 项目", "Client / Project"), t("金额", "Amount"), t("状态", "Status")].map((h) => (
                   <th
                     key={h}
                     className="font-mono text-[10px] tracking-wide uppercase text-moss text-left px-4 py-3 bg-paper-2 border-b border-line font-semibold"
@@ -299,13 +301,13 @@ export default function DashboardPage() {
               {loading ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-[13px] text-[#9a938a]">
-                    加载中…
+                    {t("加载中…", "Loading…")}
                   </td>
                 </tr>
               ) : recent.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-[13px] text-[#9a938a]">
-                    还没有单据。
+                    {t("还没有单据。", "No documents yet.")}
                   </td>
                 </tr>
               ) : (
@@ -343,9 +345,9 @@ export default function DashboardPage() {
         {/* DLP */}
         <div className="flex items-center justify-between mt-[30px] mb-3.5">
           <h2 className="font-sans font-bold text-base flex items-center gap-2">
-            DLP 保固到期提醒
+            {t("DLP 保固到期提醒", "DLP Warranty Reminders")}
             <span className="font-mono text-[11px] text-amber border border-line px-1.5 py-0.5 rounded">
-              自动追踪
+              {t("自动追踪", "Auto-tracked")}
             </span>
           </h2>
         </div>
@@ -353,7 +355,7 @@ export default function DashboardPage() {
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr>
-                {["项目", "完工日期", "保固到期", "剩余"].map((h) => (
+                {[t("项目", "Project"), t("完工日期", "Completion"), t("保固到期", "Expiry"), t("剩余", "Remaining")].map((h) => (
                   <th
                     key={h}
                     className="font-mono text-[10px] tracking-wide uppercase text-moss text-left px-4 py-3 bg-paper-2 border-b border-line font-semibold"
@@ -367,7 +369,10 @@ export default function DashboardPage() {
               {dlp.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-8 text-center text-[13px] text-[#9a938a]">
-                    暂无保固追踪 —— 给工程填上「完工日期 completion_date」后自动计算（默认工艺 6 个月）。
+                    {t(
+                      "暂无保固追踪 —— 给工程填上「完工日期」后自动计算（默认工艺 6 个月）。",
+                      "No warranties tracked yet — set a project's completion date to auto-calculate (default 6 months workmanship)."
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -390,7 +395,9 @@ export default function DashboardPage() {
                               : "bg-paper-2 text-moss"
                         }`}
                       >
-                        {d.daysLeft < 0 ? "已过期" : `${d.daysLeft} 天`}
+                        {d.daysLeft < 0
+                          ? t("已过期", "Expired")
+                          : t(`${d.daysLeft} 天`, `${d.daysLeft} days`)}
                       </span>
                     </td>
                   </tr>

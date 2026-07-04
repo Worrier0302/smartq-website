@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/logo";
+import { useLang } from "@/lib/i18n";
 
 const supabaseConfigured = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -12,6 +13,7 @@ const supabaseConfigured = Boolean(
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useLang();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export default function LoginPage() {
       password,
     });
     if (error) {
-      setError("登录失败：邮箱或密码不正确");
+      setError(t("登录失败：邮箱或密码不正确", "Login failed: wrong email or password"));
       setLoading(false);
       return;
     }
@@ -55,10 +57,13 @@ export default function LoginPage() {
           className="bg-card border border-line rounded-xl p-7 shadow-card"
         >
           <h1 className="font-sans font-bold text-base mb-1">
-            登录 Sign In
+            {t("登录", "Sign In")}
           </h1>
           <p className="text-xs text-moss mb-6">
-            Smart HQME Solution Enterprise 内部系统
+            {t(
+              "Smart HQME Solution Enterprise 内部系统",
+              "Smart HQME Solution Enterprise — Internal System"
+            )}
           </p>
 
           {!supabaseConfigured && (
@@ -72,7 +77,7 @@ export default function LoginPage() {
 
           <div className="mb-4">
             <label className="block font-mono text-[11px] tracking-wide uppercase text-moss mb-1.5">
-              邮箱 Email
+              {t("邮箱", "Email")}
             </label>
             <input
               type="email"
@@ -85,7 +90,7 @@ export default function LoginPage() {
           </div>
           <div className="mb-6">
             <label className="block font-mono text-[11px] tracking-wide uppercase text-moss mb-1.5">
-              密码 Password
+              {t("密码", "Password")}
             </label>
             <input
               type="password"
@@ -106,7 +111,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-2.5 rounded-lg bg-forest text-white font-sans font-semibold text-sm hover:bg-forest-2 transition disabled:opacity-60"
           >
-            {loading ? "登录中…" : "登录"}
+            {loading ? t("登录中…", "Signing in…") : t("登录", "Sign In")}
           </button>
         </form>
 
