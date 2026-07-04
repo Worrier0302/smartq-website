@@ -52,26 +52,34 @@ export function QuotePreview({
         SMART Q
       </div>
 
-      {/* head */}
-      <div className="flex justify-between items-start pb-3.5 border-b-2 border-forest">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-amber rounded-md grid place-items-center font-narrow font-bold text-ink text-[15px]">
+      {/* head — 公司抬头 */}
+      <div className="flex justify-between items-start pb-3 border-b-2 border-forest gap-3">
+        <div className="flex items-start gap-2 w-[70%]">
+          <div className="w-7 h-7 flex-none bg-amber rounded-md grid place-items-center font-narrow font-bold text-ink text-[15px]">
             SQ
           </div>
-          <div>
-            <b className="font-sans font-extrabold text-[14px] block tracking-tight">
-              {COMPANY.brand}
-            </b>
-            <span className="text-[7px] text-moss tracking-tight">
+          <div className="leading-tight">
+            <b className="font-sans font-extrabold text-[10px] block text-ink uppercase">
               {COMPANY.name}
+            </b>
+            <span className="block text-[6.5px] text-[#6b7570]">
+              {COMPANY.reg}
+            </span>
+            <span className="block text-[7px] text-[#6b7570] mt-1">
+              {COMPANY.address}
+            </span>
+            <span className="block text-[7px] text-[#6b7570]">
+              Hotline: {COMPANY.phones}
             </span>
           </div>
         </div>
-        <div className="text-right">
-          <b className="font-sans text-[15px] font-extrabold text-forest tracking-wide block">
+        <div className="text-right w-[28%]">
+          <b className="font-sans text-[15px] font-extrabold text-forest block">
             QUOTATION
           </b>
-          <span className="font-mono text-[8px] text-moss">{docNo}</span>
+          <span className="font-mono text-[8px] text-moss block mt-0.5">
+            {docNo}
+          </span>
         </div>
       </div>
 

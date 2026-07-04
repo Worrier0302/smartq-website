@@ -46,23 +46,32 @@ const s = StyleSheet.create({
     borderBottomColor: C.forest,
     paddingBottom: 10,
   },
-  brandRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    width: "70%",
+  },
   mark: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     backgroundColor: C.amber,
-    borderRadius: 4,
+    borderRadius: 5,
     color: C.ink,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "bold",
     textAlign: "center",
-    paddingTop: 5,
+    paddingTop: 6,
+    flexShrink: 0,
   },
-  brandName: { fontSize: 13, fontWeight: "bold" },
-  brandSub: { fontSize: 6.5, color: C.moss },
-  docType: { fontSize: 15, fontWeight: "bold", color: C.forest, textAlign: "right" },
-  docNo: { fontSize: 8, color: C.moss, textAlign: "right" },
-  status: { fontSize: 7, color: C.amber, textAlign: "right", marginTop: 1 },
+  coName: { fontSize: 10.5, fontWeight: "bold", color: C.ink, lineHeight: 1.25 },
+  coReg: { fontSize: 7, color: C.grey, marginTop: 1 },
+  coAddr: { fontSize: 7.5, color: C.grey, marginTop: 3 },
+  coPhone: { fontSize: 7.5, color: C.grey, marginTop: 0.5 },
+  docBox: { width: "28%", alignItems: "flex-end" },
+  docType: { fontSize: 16, fontWeight: "bold", color: C.forest },
+  docNo: { fontSize: 9, color: C.moss, marginTop: 2 },
+  status: { fontSize: 7.5, color: C.amber, marginTop: 2 },
   meta: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -221,16 +230,18 @@ export function DocumentPDF({ d }: { d: DocPDFData }) {
   return (
     <Document>
       <Page size="A4" style={s.page}>
-        {/* head */}
+        {/* head — 公司抬头 */}
         <View style={s.head}>
           <View style={s.brandRow}>
             <Text style={s.mark}>SQ</Text>
-            <View>
-              <Text style={s.brandName}>{COMPANY.brand}</Text>
-              <Text style={s.brandSub}>{COMPANY.name}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.coName}>{COMPANY.name.toUpperCase()}</Text>
+              <Text style={s.coReg}>{COMPANY.reg}</Text>
+              <Text style={s.coAddr}>{COMPANY.address}</Text>
+              <Text style={s.coPhone}>Hotline: {COMPANY.phones}</Text>
             </View>
           </View>
-          <View>
+          <View style={s.docBox}>
             <Text style={s.docType}>{d.titleEn}</Text>
             <Text style={s.docNo}>{d.docNo}</Text>
             {d.statusLabel ? <Text style={s.status}>{d.statusLabel}</Text> : null}

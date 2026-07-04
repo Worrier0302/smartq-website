@@ -95,9 +95,9 @@ export function quoteTotals(sections: QuoteSection[], discount: number) {
 export const COMPANY = {
   name: "Smart HQME Solution Enterprise",
   brand: "Smart Q",
-  reg: "Reg 202403276597 (JM1013409-A)",
-  address: "30 Jalan Nibong 38, Taman Daya, 81100 JB",
-  phones: "+65 9381 1110 / +60 10-766 5565",
+  reg: "(202403276597) (JM1013409-A)",
+  address: "30, Jalan Nibong 38, Taman Daya, 81100 Johor Bahru, Johor",
+  phones: "+65 9381 1110 (WhatsApp) / +60 10-766 5565",
   bank: "Hong Leong Bank 37800097539",
   pic: "Jaxson Ong",
 };
