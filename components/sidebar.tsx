@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { LogoMark } from "@/components/logo";
 
 type NavItem = {
   href: string;
@@ -142,9 +143,8 @@ export function Sidebar({
     <aside className="bg-forest text-paper py-[22px] px-4 flex flex-col gap-1.5 sticky top-0 h-screen">
       {/* 品牌 */}
       <div className="flex items-center gap-2.5 px-2 pb-5 border-b border-white/10 mb-3.5">
-        <div className="w-[34px] h-[34px] rounded-[7px] bg-amber text-ink grid place-items-center font-narrow font-bold text-lg tracking-tight">
-          SQ
-        </div>
+        <LogoMark size={34} variant="light" />
+
         <div>
           <b className="block font-sans font-extrabold text-base tracking-tight text-white">
             Smart&nbsp;Q
