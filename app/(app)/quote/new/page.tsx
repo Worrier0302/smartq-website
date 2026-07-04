@@ -22,14 +22,28 @@ const uid = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
 
-type TermItem = { key: string; text: string; on: boolean };
-// 把模板文本按行拆成可勾选项
-const toItems = (text: string | null | undefined, on: boolean): TermItem[] =>
+type TermItem = { key: string; text: string; on: boolean; tpl?: string };
+// 把模板文本按行拆成可勾选项（tpl = 来源模板 id，用于取消勾选时移除）
+const toItems = (
+  text: string | null | undefined,
+  on: boolean,
+  tpl?: string
+): TermItem[] =>
   (text ?? "")
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
-    .map((l) => ({ key: uid(), text: l, on }));
+    .map((l) => ({ key: uid(), text: l, on, tpl }));
+
+type TplLite = {
+  id: string;
+  name: string;
+  included: string;
+  excluded: string;
+  dlp: string;
+  conditions: string;
+  stages: { stage_name: string; pct: number; condition_text: string }[];
+};
 
 function addDays(d: Date, days: number) {
   const r = new Date(d);
@@ -76,6 +90,8 @@ export default function QuoteBuilderPage() {
   const [excItems, setExcItems] = useState<TermItem[]>([]);
   const [dlpItems, setDlpItems] = useState<TermItem[]>([]);
   const [termItems, setTermItems] = useState<TermItem[]>([]);
+  const [allTpls, setAllTpls] = useState<TplLite[]>([]);
+  const [selTplIds, setSelTplIds] = useState<string[]>([]);
   const joinOn = (items: TermItem[]) =>
     items
       .filter((i) => i.on && i.text.trim())
@@ -113,6 +129,40 @@ export default function QuoteBuilderPage() {
     notify(`已导入 ${n} 个项目（${parsed.length} 个工种）`);
   }
 
+  // ---- 勾选/取消模板：合并或移除该模板的条款项 ----
+  function toggleTpl(id: string) {
+    const tpl = allTpls.find((t) => t.id === id);
+    if (!tpl) return;
+    const on = !selTplIds.includes(id);
+    setSelTplIds((prev) =>
+      on ? [...prev, id] : prev.filter((x) => x !== id)
+    );
+    const merge = (
+      setter: React.Dispatch<React.SetStateAction<TermItem[]>>,
+      text: string
+    ) =>
+      setter((prev) =>
+        on
+          ? [...prev, ...toItems(text, true, id)]
+          : prev.filter((i) => i.tpl !== id)
+      );
+    merge(setIncItems, tpl.included);
+    merge(setExcItems, tpl.excluded);
+    merge(setDlpItems, tpl.dlp);
+    merge(setTermItems, tpl.conditions);
+    // 付款时程：勾第一个模板时套用它的（之后可手动改）
+    if (on && selTplIds.length === 0 && tpl.stages.length) {
+      setPay(
+        tpl.stages.map((s) => ({
+          key: uid(),
+          stage_name: s.stage_name,
+          pct: s.pct,
+          condition_text: s.condition_text,
+        }))
+      );
+    }
+  }
+
   // ---- initial load: role, clients, subs, default template ----
   useEffect(() => {
     if (!configured) return;
@@ -145,41 +195,56 @@ export default function QuoteBuilderPage() {
         setSubs((ss as Subcontractor[]) ?? []);
       }
 
-      const { data: tpl } = await supabase
+      // ---- 载入所有条款模板 ----
+      const { data: tplRows } = await supabase
         .from("term_templates")
         .select("*")
-        .eq("is_default", true)
-        .limit(1)
-        .maybeSingle();
-      if (tpl) {
-        // 从模板带出，默认「不勾」——勾了才进报价
-        setIncItems(toItems(tpl.included, false));
-        setExcItems(toItems(tpl.excluded, false));
-        setDlpItems(toItems(tpl.dlp, false));
-        setTermItems(toItems(tpl.conditions, false));
-        const stages = (tpl.payment_stages as unknown[]) ?? [];
-        setPay(
-          stages.map((s) => {
-            const o = s as {
-              stage_name?: string;
-              pct?: number;
-              condition_text?: string;
-            };
-            return {
-              key: uid(),
-              stage_name: o.stage_name ?? "",
-              pct: Number(o.pct) || 0,
-              condition_text: o.condition_text ?? "",
-            };
-          })
-        );
-      }
+        .order("is_default", { ascending: false })
+        .order("name");
+      const tpls: TplLite[] = (tplRows ?? []).map((t) => ({
+        id: t.id,
+        name: t.name ?? "模板",
+        included: t.included ?? "",
+        excluded: t.excluded ?? "",
+        dlp: t.dlp ?? "",
+        conditions: t.conditions ?? "",
+        stages: ((t.payment_stages as unknown[]) ?? []).map((s) => {
+          const o = s as { stage_name?: string; pct?: number; condition_text?: string };
+          return {
+            stage_name: o.stage_name ?? "",
+            pct: Number(o.pct) || 0,
+            condition_text: o.condition_text ?? "",
+          };
+        }),
+      }));
+      setAllTpls(tpls);
 
-      // ---- edit mode: 载入已有报价 ?edit=<id> ----
       const eid =
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search).get("edit")
           : null;
+
+      // 新建报价：自动套用默认模板（第一个）；编辑模式则保留原报价内容
+      if (!eid && tpls.length) {
+        const def =
+          (tplRows ?? []).find((t) => t.is_default)?.id ?? tpls[0].id;
+        const d = tpls.find((t) => t.id === def)!;
+        setSelTplIds([d.id]);
+        setIncItems(toItems(d.included, false, d.id));
+        setExcItems(toItems(d.excluded, false, d.id));
+        setDlpItems(toItems(d.dlp, false, d.id));
+        setTermItems(toItems(d.conditions, false, d.id));
+        setPay(
+          d.stages.map((s) => ({
+            key: uid(),
+            stage_name: s.stage_name,
+            pct: s.pct,
+            condition_text: s.condition_text,
+          }))
+        );
+      }
+
+      // ---- edit mode: 载入已有报价 ?edit=<id> ----
       if (eid) {
         const { data: doc } = await supabase
           .from("documents")
@@ -763,6 +828,39 @@ export default function QuoteBuilderPage() {
 
             {/* Card 3 — payment + terms */}
             <FormCard n={3} title="付款时程 · 条款 · 保固">
+              {/* 模板选择：勾选要套用的条款模板（可多选） */}
+              {allTpls.length > 0 && (
+                <div className="mb-4 p-3 rounded-lg bg-paper-2 border border-line">
+                  <div className="font-mono text-[9.5px] tracking-tight uppercase text-moss mb-2">
+                    套用条款模板（可多选）
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {allTpls.map((t) => {
+                      const on = selTplIds.includes(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => toggleTpl(t.id)}
+                          className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition ${
+                            on
+                              ? "bg-forest text-white border-forest"
+                              : "bg-white text-moss border-line hover:border-moss"
+                          }`}
+                        >
+                          {on ? "✓ " : "+ "}
+                          {t.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10.5px] text-[#8a938e] mt-2">
+                    勾选后，该模板的条款会出现在下方清单里（再逐条勾选进报价）。模板在
+                    设置 → 条款模板 维护。
+                  </p>
+                </div>
+              )}
+
               <span className={mini + " !mt-0"}>
                 付款时程 Payment Schedule（% 自动算金额）
               </span>
