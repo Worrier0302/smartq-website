@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Smart Q — 装修工程业务管理系统
 
-## Getting Started
+Smart HQME Solution Enterprise 内部系统：报价 → 发票 → 收据 → 送货单 → 采购单，
+含判包成本加成、按判包商拆 PO、收款追踪、PDF 生成。
 
-First, run the development server:
+## 技术栈
+
+Next.js 14 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth + RLS) ·
+`@react-pdf/renderer` · 部署 Vercel。
+
+## 本地运行
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.local.example .env.local   # 填入 Supabase URL + anon key
+npm run dev                        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 目录
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| 路径 | 说明 |
+|---|---|
+| `/` | 仪表板（成交/待收/进行中/毛利 + 最近单据 + DLP 提醒）|
+| `/documents` · `/documents/[id]` | 单据列表与详情（流转、收款、PDF、PO WhatsApp）|
+| `/quote/new` | 开新报价（可编辑 section + 实时预览）|
+| `/markup` | 判包成本 → 加成工作台 + 拆 PO（owner）|
+| `/clients` · `/subcontractors` | 资料库 |
+| `/settings/terms` | 条款默认模板（owner）|
+| `/api/pdf/[docId]` | 服务端 PDF 生成 |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 权限
 
-## Learn More
+- `owner`：看全部（含成本、加成、利润、判包商、PO）
+- `staff`：能开单填资料，但**数据库层面**看不到成本/加成/判包商/PO（RLS + 安全视图强制）
 
-To learn more about Next.js, take a look at the following resources:
+## 数据库
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+完整 SQL 在 `supabase/schema.sql`，可直接贴进 Supabase SQL Editor 运行。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 部署
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+见 `DEPLOY.md`。

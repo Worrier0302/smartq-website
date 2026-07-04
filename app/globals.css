@@ -3,25 +3,30 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --ink: #111917; /* 近黑绿，主文字 */
+  --forest: #12352b; /* 深墨绿，主色/侧边栏 */
+  --forest2: #1c4a3c;
+  --moss: #2f6b57; /* 苔绿，次要/标签 */
+  --sage: #7fa392;
+  --paper: #f3f0e9; /* 图纸纸色，背景 */
+  --paper2: #e9e4d8;
+  --line: #d4cdbc; /* 边框 */
+  --amber: #d98a2b; /* 信号琥珀，强调/CTA */
+  --amber-soft: #f6e6cd;
+  --red: #b8452f;
+  --green-ok: #3f7d5a;
+  --white: #fbfaf6;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-archivo), var(--font-noto-sc), system-ui, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+::selection {
+  background: var(--amber);
+  color: #fff;
 }
